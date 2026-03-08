@@ -131,7 +131,7 @@
   var GAS_URL = "https://script.google.com/macros/s/AKfycbwAaz77sZNWyVxzhP1kgN62c3jVlIYPUF-z268wgzMV6UDw0wIgI1bJoFasjtq2jJul/exec";
 
   // hosted_button_id del pulsante PayPal creato nel pannello PayPal
-  var PAYPAL_BUTTON_ID = "A25BFS8ND9ZJJ";
+  var PAYPAL_BUTTON_ID = "xxxxxxxxxxxxxx";
   // ================================================================
 
   function show(id) {
@@ -163,7 +163,9 @@
       }
       // Costruisce l'URL PayPal con hwid nel campo custom e return URL qui
       var returnUrl = window.location.origin + window.location.pathname
-                    + "?hwid=" + encodeURIComponent(hwid) + "&st=Completed";
+                    + "?hwid=" + encodeURIComponent(hwid)
+                    + "&st=Completed"
+                    + "&mc_gross={AMOUNT}&mc_currency={CURRENCY}";
       var cancelUrl = window.location.origin + window.location.pathname
                     + "?hwid=" + encodeURIComponent(hwid);
       var paypalUrl = "https://www.paypal.com/donate"
