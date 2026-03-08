@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>pTarkovSpeedUp — Support</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #111;
+      color: #ccc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-top: 3px solid #00c853;
+      border-radius: 8px;
+      max-width: 560px;
+      width: 100%;
+      padding: 40px 36px;
+      text-align: center;
+    }
+
+    .icon { font-size: 48px; margin-bottom: 16px; }
+    h1 { color: #00c853; font-size: 22px; margin-bottom: 16px; }
+    p  { font-size: 14px; line-height: 1.7; color: #aaa; margin-bottom: 14px; }
+    p strong { color: #ddd; }
+
+    .btn {
+      display: inline-block;
+      margin-top: 24px;
+      padding: 14px 36px;
+      background: #00c853;
+      color: #000;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 4px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #00e676; }
+
+    .note     { margin-top: 20px; font-size: 11px; color: #555; }
+    .error-msg { margin-top: 20px; color: #ff5252; font-size: 13px; display: none; }
+
+    .spinner {
+      display: none;
+      margin: 20px auto 0;
+      width: 28px; height: 28px;
+      border: 3px solid #333;
+      border-top-color: #00c853;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <!-- Schermata di caricamento -->
+  <div class="card" id="card-loading">
+    <div class="icon">⚡</div>
+    <h1>Please wait...</h1>
+    <div class="spinner" style="display:block;"></div>
+  </div>
+
+  <!-- Schermata pre-donazione: utente arriva dal tray menu -->
+  <div class="card" id="card-donate" style="display:none;">
+    <div class="icon">💚</div>
+    <h1>Support pTarkovSpeedUp</h1>
+    <p><strong>pTarkovSpeedUp</strong> is free and always will be.</p>
+    <p>If it helped you get better performance in Escape from Tarkov,
+       consider making a small donation to support continued development.</p>
+    <p>After donating, you will be automatically redirected back here
+       and the donation reminder will never appear again on this machine.</p>
+    <a class="btn" id="btn-donate" href="#">❤️ Donate via PayPal</a>
+    <p class="note">You will be redirected to PayPal. After the donation,
+       come back here to confirm it on this machine.</p>
+  </div>
+
+  <!-- Schermata di verifica post-donazione -->
+  <div class="card" id="card-verifying" style="display:none;">
+    <div class="icon">⚡</div>
+    <h1>Verifying your donation...</h1>
+    <div class="spinner" style="display:block;"></div>
+    <p style="margin-top:20px;">Please wait a moment.</p>
+  </div>
+
+  <!-- Schermata di successo: mostra il pulsante Confirm Donation -->
+  <div class="card" id="card-success" style="display:none;">
+    <div class="icon">✅</div>
+    <h1>Thank you for your donation!</h1>
+    <p>Your generous support helps keep <strong>pTarkovSpeedUp</strong>
+       alive and free for everyone.</p>
+    <p>As a thank you, the donation reminder will no longer appear at startup
+       on this machine. The program remains completely free — you are always
+       welcome to donate again whenever you wish, with no popups or interruptions.</p>
+    <p>Click the button below to confirm your donation on this machine.<br>
+       Make sure <strong>pTarkovSpeedUp</strong> is already running in the system tray.</p>
+    <a class="btn" id="btn-activate" href="#">⚡ Confirm Donation</a>
+    <p class="note">
+      A dialog will appear asking to open pTarkovSpeedUp — click <strong>Open</strong>.<br>
+      This only dismisses the reminder on this machine. The program will always remain free.
+    </p>
+  </div>
+
+  <!-- Schermata di errore -->
+  <div class="card" id="card-error" style="display:none;">
+    <div class="icon">❌</div>
+    <h1>Something went wrong</h1>
+    <p id="err-detail">Unable to verify your donation. Please try again later.</p>
+    <p class="note">If you believe this is an error, please contact support
+       with your transaction ID.</p>
+  </div>
+
+<script>
+  // ================================================================
+  // CONFIGURAZIONE
+  // ================================================================
+  // URL del Google Apps Script deployment (backend verifica donazioni)
+  var GAS_URL = "https://script.google.com/macros/s/AKfycbwAaz77sZNWyVxzhP1kgN62c3jVlIYPUF-z268wgzMV6UDw0wIgI1bJoFasjtq2jJul/exec";
+
+  // hosted_button_id del pulsante PayPal creato nel pannello PayPal
+  var PAYPAL_BUTTON_ID = "A25BFS8ND9ZJJ";
+  // ================================================================
+
+  function show(id) {
+    ["card-loading","card-donate","card-verifying","card-success","card-error"]
+      .forEach(function(cid) {
+        document.getElementById(cid).style.display = (cid === id) ? "block" : "none";
+      });
+  }
+
+  function getParam(name) {
+    return new URL(window.location.href).searchParams.get(name) || "";
+  }
+
+  function showError(msg) {
+    document.getElementById("err-detail").textContent = msg;
+    show("card-error");
+  }
+
+  window.addEventListener("load", function() {
+    var hwid   = getParam("hwid");
+    var txid   = getParam("txid") || getParam("tx");
+    var status = getParam("st") || "";
+
+    // --- CASO 1: nessun parametro o solo hwid — schermata pre-donazione ---
+    if (!txid) {
+      if (!hwid) {
+        showError("Please use the Donate button inside pTarkovSpeedUp program.");
+        return;
+      }
+      // Costruisce l'URL PayPal con hwid nel campo custom e return URL qui
+      var returnUrl = window.location.origin + window.location.pathname
+                    + "?hwid=" + encodeURIComponent(hwid) + "&st=Completed";
+      var cancelUrl = window.location.origin + window.location.pathname
+                    + "?hwid=" + encodeURIComponent(hwid);
+      var paypalUrl = "https://www.paypal.com/donate"
+                    + "?hosted_button_id=" + encodeURIComponent(PAYPAL_BUTTON_ID)
+                    + "&custom="           + encodeURIComponent(hwid)
+                    + "&return="           + encodeURIComponent(returnUrl)
+                    + "&cancel_return="    + encodeURIComponent(cancelUrl);
+
+      document.getElementById("btn-donate").href = paypalUrl;
+      show("card-donate");
+      return;
+    }
+
+    // --- CASO 2: ritorno da PayPal dopo donazione ---
+    if (status !== "Completed") {
+      showError("Transaction not completed yet. Please try again in a few minutes.");
+      return;
+    }
+
+    show("card-verifying");
+
+    // Chiama il GAS per ottenere il token
+    var apiUrl = GAS_URL
+      + "?hwid=" + encodeURIComponent(hwid)
+      + "&txid=" + encodeURIComponent(txid)
+      + "&st="   + encodeURIComponent(status);
+
+    fetch(apiUrl)
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (!data.token) throw new Error(data.error || "No token received");
+
+        var ptarkovUrl = "ptarkov://unlock"
+          + "?txid="  + encodeURIComponent(txid)
+          + "&token=" + encodeURIComponent(data.token)
+          + "&hwid="  + encodeURIComponent(hwid);
+
+        document.getElementById("btn-activate").href = ptarkovUrl;
+        show("card-success");
+      })
+      .catch(function(err) {
+        showError("Verification failed: " + err.message);
+      });
+  });
+</script>
+
+</body>
+</html>
