@@ -185,11 +185,16 @@
 
     show("card-verifying");
 
+    var amount   = getParam("mc_gross");
+    var currency = getParam("mc_currency");
+
     // Chiama il GAS per ottenere il token
     var apiUrl = GAS_URL
-      + "?hwid=" + encodeURIComponent(hwid)
-      + "&txid=" + encodeURIComponent(txid)
-      + "&st="   + encodeURIComponent(status);
+      + "?hwid="     + encodeURIComponent(hwid)
+      + "&txid="     + encodeURIComponent(txid)
+      + "&st="       + encodeURIComponent(status)
+      + "&amount="   + encodeURIComponent(amount)
+      + "&currency=" + encodeURIComponent(currency);
 
     fetch(apiUrl)
       .then(function(res) { return res.json(); })
